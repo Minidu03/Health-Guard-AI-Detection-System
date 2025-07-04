@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Health Guard AI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      text-align: center;
+      padding-top: 50px;
+    }
+    .form-box {
+      background: #fff;
+      padding: 30px;
+      margin: auto;
+      width: 300px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 10px;
+    }
+    input, button {
+      margin: 10px 0;
+      padding: 10px;
+      width: 100%;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #2e86de;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #result {
+      font-weight: bold;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="form-box">
+    <h2>🩺 Health Guard AI</h2>
+    <input id="systolic" type="number" placeholder="Systolic BP (e.g. 120)">
+    <input id="diastolic" type="number" placeholder="Diastolic BP (e.g. 80)">
+    <input id="heart_rate" type="number" placeholder="Heart Rate (e.g. 75)">
+    <input id="spo2" type="number" placeholder="SpO₂ Level (e.g. 97)">
+    <button onclick="checkRisk()">Check Health Status</button>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    function checkRisk() {
+      const systolic = parseInt(document.getElementById("systolic").value);
+      const diastolic = parseInt(document.getElementById("diastolic").value);
+      const heartRate = parseInt(document.getElementById("heart_rate").value);
+      const spo2 = parseInt(document.getElementById("spo2").value);
+
+
+if (isNaN(systolic) || isNaN(diastolic) || isNaN(heartRate) || isNaN(spo2)) {
+  document.getElementById("result").innerText = "⚠️ Please enter valid numbers in all fields";
+  return;
+}
+
+const data = {
+  systolic_bp: systolic,
+  diastolic_bp: diastolic,
+  heart_rate: heartRate,
+  spo2: spo2
+};
+
+
+      fetch("http://127.0.0.1:5000/predict", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(result => {
+        document.getElementById("result").innerText = "🧠 Result: " + result.result;
+      })
+      .catch(err => {
+        document.getElementById("result").innerText = "⚠️ Error: Could not connect to the server";
+        console.error(err);
+      });
+    }
+  </script>
+</body>
+</html>

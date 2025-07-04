@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Health Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      background: #f2f2f2;
+      padding: 40px;
+      text-align: center;
+    }
+    table {
+      margin: auto;
+      border-collapse: collapse;
+      width: 90%;
+      background: #fff;
+    }
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #ccc;
+    }
+    th {
+      background-color: #2e86de;
+      color: white;
+    }
+    tr:hover {
+      background-color: #f9f9f9;
+    }
+    caption {
+      font-size: 24px;
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+    input, select, button {
+      padding: 8px;
+      margin: 5px;
+    }
+    #predict-result, #welcome {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    canvas {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div style="text-align: right;">
+    <span id="welcome">👋 Welcome!</span>
+    <button onclick="logout()" style="background: #dc3545; color: white; border: none; padding: 20px 20px; border-radius: 10px;">⬅️ Logout</button>
+  </div>
+
+  <h2>👨‍⚕️ Health Guard — AI Prediction 👩‍⚕️</h2><br /><br />
+
+  <form id="predictForm">
+    <label for="systolic">Systolic BP :</label>
+    <input type="number" id="systolic" placeholder="Systolic BP" required />
+    <label for="diastoli">Diastolic BP :</label>
+    <input type="number" id="diastolic" placeholder="Diastolic BP" required />
+    <label for="heart_rate">Heart Rate :</label>
+    <input type="number" id="heart_rate" placeholder="Heart Rate" required />
+    <label for="spo2">SpO₂ :</label>
+    <input type="number" id="spo2" placeholder="SpO₂" required /><br /><br />
+    <button type="submit">Predict</button><br /><br />
+  </form>
+  <div id="predict-result"></div>
+
+  <h3>📁 Filter Prediction History</h3><br />
+  <form id="filter-form">
+    <select id="filter-status">
+      <option value="">All</option>
+      <option value="HEALTHY">HEALTHY</option>
+      <option value="RISK">RISK</option>
+    </select>
+
+    <input type="date" id="start-date" />
+    <input type="date" id="end-date" />
+    <button type="submit">🔍 Filter</button>
+    <button type="button" onclick="loadHistory()">🔄 Reset</button><br /><br />
+    <button type="button" onclick="downloadCSV()">📥 Download CSV</button>
+    <button type="button" onclick="downloadPDF()">🧾 Download PDF</button>
+
+  </form>
+  <br />
+  <br />
+  <table>
+    <caption>🩺 Prediction History</caption><br />
+    <thead>
+      <tr>
+        <th>Date & Time</th>
+        <th>Systolic</th>
+        <th>Diastolic</th>
+        <th>Heart Rate</th>
+        <th>SpO₂</th>
+        <th>Result</th>
+        <th>⏱️ Time Ago</th>
+      </tr>
+    </thead>
+    <tbody id="history-body"></tbody>
+  </table>
+
+  <h2>📊 Health Trends</h2>
+  <canvas id="healthChart" width="800" height="300"></canvas>
+
+  <script>
+    async function loadHistory(url = "/history") {
+      const res = await fetch(url);
+      const data = await res.json();
+      renderTable(data);
+      renderChart(data);
+    }
+
+    function renderTable(data) {
+      const body = document.getElementById("history-body");
+      body.innerHTML = "";
+
+      data.forEach(entry => {
+        const timestamp = new Date(entry.timestamp);
+    const now = new Date();
+    const diff = Math.floor((now - timestamp) / 1000); // seconds
+    let timeAgo = "";
+
+    if (diff < 60) {
+      timeAgo = `${diff} sec ago`;
+    } else if (diff < 3600) {
+      timeAgo = `${Math.floor(diff / 60)} min ago`;
+    } else if (diff < 86400) {
+      timeAgo = `${Math.floor(diff / 3600)} hr ago`;
+    } else {
+      timeAgo = `${Math.floor(diff / 86400)} day${diff >= 172800 ? "s" : ""} ago`;
+    }
+
+    const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${entry.timestamp}</td>
+          <td>${entry.systolic}</td>
+          <td>${entry.diastolic}</td>
+          <td>${entry.heart_rate}</td>
+          <td>${entry.spo2}</td>
+          <td>${entry.result}</td>
+          <td>${timeAgo}</td>
+        `;
+        body.appendChild(row);
+      });
+    }
+
+    function renderChart(data) {
+      const timestamps = data.map(e => e.timestamp).reverse();
+      const heartRates = data.map(e => e.heart_rate).reverse();
+      const spo2Levels = data.map(e => e.spo2).reverse();
+
+      new Chart(document.getElementById("healthChart"), {
+        type: "line",
+        data: {
+          labels: timestamps,
+          datasets: [
+            {
+              label: "Heart Rate (BPM)",
+              data: heartRates,
+              borderColor: "red",
+              fill: false
+            },
+            {
+              label: "SpO₂ (%)",
+              data: spo2Levels,
+              borderColor: "blue",
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    document.getElementById("predictForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const systolic = document.getElementById("systolic").value;
+      const diastolic = document.getElementById("diastolic").value;
+      const heart_rate = document.getElementById("heart_rate").value;
+      const spo2 = document.getElementById("spo2").value;
+
+      const res = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ systolic_bp: systolic, diastolic_bp: diastolic, heart_rate, spo2 })
+      });
+      const result = await res.json();
+      document.getElementById("predict-result").textContent = result.result ? `✅ Result: ${result.result}` : `⚠️ ${result.error}`;
+      loadHistory();
+      document.getElementById("predictForm").reset();
+    });
+
+    document.getElementById("filter-form").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const status = document.getElementById("filter-status").value;
+      const start = document.getElementById("start-date").value;
+      const end = document.getElementById("end-date").value;
+
+      let url = "/history/filter?";
+      if (status) url += `status=${status}&`;
+      if (start && end) url += `start_date=${start}&end_date=${end}`;
+      loadHistory(url);
+    });
+
+    function downloadCSV() {
+      window.location.href = "/download";
+    }
+
+    function downloadPDF() {
+  const element = document.createElement("div");
+  element.innerHTML = `
+    <h2>🧠 Health Guard — Prediction Report</h2>
+    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+    ${document.querySelector("table").outerHTML}
+  `;
+
+  const opt = {
+    margin:       0.5,
+    filename:     `health_guard_history_${Date.now()}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2 },
+    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+
+  html2pdf().from(element).set(opt).save();
+}
+
+
+    function logout() {
+      fetch("/logout", { method: "POST" })
+        .then(() => {
+          alert("You’ve been logged out!");
+          window.location.href = "/login";
+        });
+        
+    }
+
+    fetch("/whoami")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("welcome").textContent = `👋 Welcome, ${data.username}`;
+      });
+
+    window.onload = loadHistory;
+  </script>
+</body>
+</html>
+

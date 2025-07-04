@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Register</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #eef2f5;
+      text-align: center;
+      padding: 50px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 10px;
+      width: 220px;
+      font-size: 16px;
+    }
+    #message {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    a {
+      color: #007BFF;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>👤 Create a New Account</h2>
+
+  <form id="registerForm">
+    <input id="username" placeholder="Username" required /><br />
+    <input id="password" type="password" placeholder="Password" required /><br />
+    <button type="submit">Register</button>
+  </form>
+
+  <p id="message"></p>
+  <p><a href="/login">Already have an account? Log in here.</a></p>
+
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const messageBox = document.getElementById("message");
+
+      if (!username || !password) {
+        messageBox.textContent = "⚠️ Please fill in both fields.";
+        return;
+      }
+
+      try {
+        const res = await fetch("/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+          messageBox.textContent = "✅ Account created! Redirecting to login...";
+          setTimeout(() => window.location.href = "/login", 1200);
+        } else {
+          messageBox.textContent = "❌ " + (result.error || "Registration failed.");
+        }
+      } catch (error) {
+        messageBox.textContent = "⚠️ Could not connect to server.";
+      }
+    });
+  </script>
+
+</body>
+</html>
