@@ -1,13 +1,18 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, session
 import pickle, numpy as np
+from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = 'your_secret_key'  # Change this to something strong!
+
+# 🧠 Load ML model
 model = pickle.load(open('health_model.pkl', 'rb'))
 
+# 🔐 Hardcoded admin credentials
 ADMIN_USER = 'admin'
 ADMIN_PASS = 'health123'
 
+# 🩺 Symptom database
 symptom_db = {
     "cough": {"disease": "Common Cold", "probability": "80%",
               "precautions": ["Rest", "Hydrate", "Lozenges", "Avoid cold air"]},
@@ -16,6 +21,8 @@ symptom_db = {
     "fatigue": {"disease": "Anemia", "probability": "65%",
                 "precautions": ["Iron-rich foods", "Avoid exertion", "Consult doctor", "Track diet"]}
 }
+
+# ---------------- ROUTES ----------------
 
 @app.route('/')
 def login():
@@ -36,12 +43,17 @@ def dashboard():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    bp = int(request.form['bp'])
-    hr = int(request.form['hr'])
-    oxygen = int(request.form['oxygen'])
-    prediction = model.predict(np.array([[bp, hr, oxygen]]))
-    status = "At Risk 🚨" if prediction[0] == 1 else "Healthy ✅"
-    return render_template('result.html', prediction=status)
+    try:
+        bp = int(request.form['bp'])
+        hr = int(request.form['hr'])
+        oxygen = int(request.form['oxygen'])
+
+        prediction = model.predict(np.array([[bp, hr, oxygen]]))
+        status = "At Risk 🚨" if prediction[0] == 1 else "Healthy ✅"
+        return render_template('result.html', prediction=status)
+
+    except Exception as e:
+        return f"<h3>Error during prediction: {str(e)}</h3>"
 
 @app.route('/symptom', methods=['POST'])
 def symptom():
@@ -50,9 +62,7 @@ def symptom():
     address = request.form['address']
     symptoms = request.form['symptoms'].lower().split(',')
 
-    results = []
-    labels = []
-    probs = []
+    results, labels, probs = [], [], []
 
     for s in symptoms:
         key = s.strip()
@@ -66,7 +76,7 @@ def symptom():
             labels.append(entry["disease"])
             probs.append(int(entry["probability"].replace('%', '')))
 
-    # ✅ FALLBACK TEST MODE — show chart anyway if no valid symptoms found
+    # ✅ Only add fallback results — do NOT overwrite patient info
     if not results:
         labels = ['Cold', 'Flu', 'Anemia']
         probs = [80, 75, 65]
@@ -75,28 +85,68 @@ def symptom():
             {"disease": "Flu", "probability": "75%", "precautions": ["Medicine", "Hydration", "Rest", "Monitor temp"]},
             {"disease": "Anemia", "probability": "65%", "precautions": ["Iron-rich foods", "Low stress", "Check blood", "Doctor"]}
         ]
-        name = request.form['name']
-        age = request.form['age']
-        address = request.form['address']
-
+        # ❌ DO NOT overwrite name, age, address here
 
     return render_template('symptom_result.html',
-                       name=name, age=age, address=address,
-                       results=results,
-                       labels=labels, probs=probs)
+                           name=name, age=age, address=address,
+                           results=results, labels=labels, probs=probs)
 
 
-@app.route("/charts")
-def charts():
-    return render_template("chart.html")
+symptom_db = {
+    "fever": {
+        "disease": "Flu",
+        "probability": "85%",
+        "precautions": [
+            "Stay hydrated",
+            "Take paracetamol",
+            "Rest in a cool place",
+            "Consult a doctor if persistent"
+        ]
+    },
+    "cough": {
+        "disease": "Bronchitis",
+        "probability": "75%",
+        "precautions": [
+            "Use cough syrup",
+            "Avoid cold drinks",
+            "Drink warm fluids",
+            "Use a humidifier"
+        ]
+    },
+    "fatigue": {
+        "disease": "Anemia",
+        "probability": "70%",
+        "precautions": [
+            "Eat iron-rich foods",
+            "Take iron supplements",
+            "Reduce stress",
+            "Avoid overexertion"
+        ]
+    },
+    "headache": {
+        "disease": "Migraine",
+        "probability": "65%",
+        "precautions": [
+            "Avoid strong lights",
+            "Take prescribed meds",
+            "Sleep well",
+            "Stay hydrated"
+        ]
+    },
+    "nausea": {
+        "disease": "Food Poisoning",
+        "probability": "80%",
+        "precautions": [
+            "Avoid solid food",
+            "Drink oral rehydration salts",
+            "Rest",
+            "Seek medical help if severe"
+        ]
+    }
+}
 
+
+# ---------------- ENTRY POINT ----------------
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-
-
-
-
